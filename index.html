@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JB Style Sketch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            background-color:black;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #drawingCanvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+            height: auto;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        .slider {
+            width: 80%;
+            margin: 10px;
+        }
+        .slider-label {
+            margin: 5px;
+        }
+        @media (max-width: 600px) {
+            .control-panel {
+                flex-direction: column;
+            }
+            .slider {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="drawingCanvas"></canvas>
+    <div class="control-panel">
+        <input type="file" id="bgImageUploader" accept="image/*">
+        <input type="file" id="styleImageUploader" accept="image/*">
+        <button id="saveBtn">Save Image</button>
+        
+        <div class="slider-label">X Movement: <input type="range" id="xSlider" min="0" max="100" class="slider"></div>
+        <div class="slider-label">Y Movement: <input type="range" id="ySlider" min="0" max="100" class="slider"></div>
+        <div class="slider-label">Mirror Effect: <input type="range" id="mirrorSlider" min="1" max="10" class="slider"></div>
+        <div class="slider-label">Brush Size: <input type="range" id="brushSizeSlider" min="0" max="50" class="slider"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let xSlider = document.getElementById('xSlider');
+        let ySlider = document.getElementById('ySlider');
+        let mirrorSlider = document.getElementById('mirrorSlider');
+        let brushSizeSlider = document.getElementById('brushSizeSlider');
+
+        let brushPattern = null;
+        let drawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // Background Image Upload
+        document.getElementById('bgImageUploader').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event){
+                const img = new Image();
+                img.onload = function(){
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);     
+        });
+
+        // Style Image Upload
+        document.getElementById('styleImageUploader').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event){
+                const img = new Image();
+                img.onload = function(){
+                    brushPattern = ctx.createPattern(img, 'repeat');
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);     
+        });
+
+        // Drawing Functions
+        function startDrawing(e) {
+            drawing = true;
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e.offsetX, e.offsetY);
+
+            if (brushPattern) {
+                ctx.strokeStyle = brushPattern;
+            } else {
+                ctx.strokeStyle = '#000';
+            }
+
+            ctx.lineWidth = brushSizeSlider.value;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+            
+            // Mirror drawing
+            let mirrors = mirrorSlider.value;
+            for (let i = 1; i <= mirrors; i++) {
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate((2 * Math.PI / mirrors) * i);
+                ctx.beginPath();
+                ctx.moveTo(lastX - canvas.width / 2, lastY - canvas.height / 2);
+                ctx.lineTo(e.offsetX - canvas.width / 2, e.offsetY - canvas.height / 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function stopDrawing() {
+            drawing = false;
+        }
+
+        // Event Listeners for Drawing
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Save Button Functionality
+        document.getElementById('saveBtn').addEventListener('click', function () {
+            const image = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+            const link = document.createElement('a');
+            link.download = 'my-image.png';
+            link.href = image;
+            link.click();
+        });
+    </script>
+</body>
+</html>
