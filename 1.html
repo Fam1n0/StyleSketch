@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canvas Drawing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrolling */
+            background-color: black;
+            color: white; /* For better visibility on black background */
+        }
+        #drawingCanvas {
+            border: 1px solid #ddd;
+            display: block; /* Removes extra space below the canvas */
+            margin: auto; /* Centers the canvas horizontally */
+            background-color: white; /* Default background for the canvas */
+        }
+        .control-panel {
+            position: fixed; /* Keeps the control panel visible */
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent background */
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 10px;
+        }
+        .slider-label {
+            margin: 5px;
+            flex-basis: 100%; /* Ensures full width on small screens */
+        }
+        /* Adjustments for larger screens can go here */
+    </style>
+</head>
+<body>
+    <canvas id="drawingCanvas"></canvas>
+    <div class="control-panel">
+        <input type="file" id="bgImageUploader" accept="image/*">
+        <input type="file" id="styleImageUploader" accept="image/*">
+        <button id="saveBtn">Save Image</button>
+        
+        <div class="slider-label">X Movement: <input type="range" id="xSlider" min="0" max="100" class="slider"></div>
+        <div class="slider-label">Y Movement: <input type="range" id="ySlider" min="0" max="100" class="slider"></div>
+        <div class="slider-label">Mirror Effect: <input type="range" id="mirrorSlider" min="1" max="10" class="slider"></div>
+        <div class="slider-label">Brush Size: <input type="range" id="brushSizeSlider" min="0" max="50" class="slider"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        let brushPattern = null;
+        resizeCanvas(); // Initial resize
+
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth;
+            const maxHeight = window.innerHeight - document.querySelector('.control-panel').offsetHeight;
+            const aspectRatio = 16 / 9; // Adjust as needed
+
+            if (maxWidth / maxHeight > aspectRatio) {
+                canvas.height = maxHeight;
+                canvas.width = maxHeight * aspectRatio;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = maxWidth / aspectRatio;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas on resize
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        canvas.addEventListener('touchstart', (e) => { if (e.target === canvas) e.preventDefault(); });
+
+        let drawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        document.getElementById('bgImageUploader').addEventListener('change', function(e) {
+            loadImage(e, function(img) { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); });
+        });
+
+        document.getElementById('styleImageUploader').addEventListener('change', function(e) {
+            loadImage(e, function(img) { brushPattern = ctx.createPattern(img, 'repeat'); });
+        });
+
+        function loadImage(e, callback) {
+            const reader = new FileReader();
+            reader.onload = function(event){
+                const img = new Image();
+                img.onload = function(){ callback(img); }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
+
+        function startDrawing(e) {
+            drawing = true;
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e.offsetX, e.offsetY);
+            ctx.strokeStyle = brushPattern || '#000';
+            ctx.lineWidth = document.getElementById('brushSizeSlider').value;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        }
+
+        function stopDrawing() { drawing = false; ctx.beginPath(); }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        document.getElementById('saveBtn').addEventListener('click', function () {
+            const image = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+            const link = document.createElement('a');
+            link.download = 'my-image.png';
+            link.href = image;
+            link.click();
+        });
+    </script>
+</body>
+</html>
