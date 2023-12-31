@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<title>I27</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+    background-color: #000000;
+    color: #FFFFFF;
+  }
+  #drawingCanvas {
+    border: 1px solid #000;
+    background-color: #fff;
+    margin-bottom: 10px;
+  }
+  #tools {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    width: 100%;
+  }
+  .tool {
+    margin-top: 10px;
+    margin-right: 10px;
+  }
+  label {
+    margin-right: 10px;
+  }
+</style>
+</head>
+<body>
+<canvas id="drawingCanvas" width="800" height="800"></canvas>
+<div id="tools">
+  <div class="tool">
+    <label for="mirrorCount">Mirror Count: <span id="mirrorCountDisplay">6</span></label>
+    <input type="range" id="mirrorCount" min="1" max="36" value="6">
+  </div>
+  <div class="tool">
+    <label for="centerX">Mirror Center X: <span id="centerXDisplay">400</span></label>
+    <input type="range" id="centerX" min="0" max="800" value="400">
+  </div>
+  <div class="tool">
+    <label for="centerY">Mirror Center Y: <span id="centerYDisplay">400</span></label>
+    <input type="range" id="centerY" min="0" max="800" value="400">
+  </div>
+  <div class="tool">
+    <label for="brushShape">Brush Shape:</label>
+    <select id="brushShape">
+      <option value="circle">Circle</option>
+      <option value="square">Square</option>
+    </select>
+  </div>
+  <div class="tool">
+    <label for="colorPicker">Color:</label>
+    <input type="color" id="colorPicker" value="#000000">
+  </div>
+  <div class="tool">
+    <button id="saveButton">Save Drawing</button>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('drawingCanvas');
+  const ctx = canvas.getContext('2d');
+  let isDrawing = false;
+  let mirrorCount = document.getElementById('mirrorCount').value;
+  let dotSize = 10;
+  let mirrorCenterX = document.getElementById('centerX').value;
+  let mirrorCenterY = document.getElementById('centerY').value;
+  let brushShape = document.getElementById('brushShape').value;
+  let brushColor = document.getElementById('colorPicker').value;
+  let lastDistance = 0;
+
+  function getDistance(touches) {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(Math.pow(touch2.pageX - touch1.pageX, 2) + Math.pow(touch2.pageY - touch1.pageY, 2));
+  }
+
+  canvas.addEventListener('touchmove', function(event) {
+    if (event.touches.length == 2) {
+      event.preventDefault();
+      const distance = getDistance(event.touches);
+      if (lastDistance > 0) {
+        dotSize += (distance - lastDistance) * 0.1;
+        dotSize = Math.max(1, Math.min(dotSize, 300));
+      }
+      lastDistance = distance;
+    }
+  });
+
+  canvas.addEventListener('touchend', function() {
+    lastDistance = 0;
+  });
+
+  function drawDot(x, y) {
+    if (!isDrawing) return;
+    const angleIncrement = (Math.PI * 2) / mirrorCount;
+    ctx.save();
+    ctx.translate(mirrorCenterX, mirrorCenterY);
+    for (let i = 0; i < mirrorCount; i++) {
+      ctx.rotate(angleIncrement);
+      if (brushShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(x - mirrorCenterX, y - mirrorCenterY, dotSize, 0, Math.PI * 2);
+      } else if (brushShape === 'square') {
+        ctx.beginPath();
+        ctx.rect(x - mirrorCenterX - dotSize/2, y - mirrorCenterY - dotSize/2, dotSize, dotSize);
+      }
+      ctx.fillStyle = brushColor;
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    drawDot(e.offsetX, e.offsetY);
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDrawing) {
+      drawDot(e.offsetX, e.offsetY);
+    }
+  });
+
+  canvas.addEventListener('mouseup', () => {
+    isDrawing = false;
+  });
+
+  canvas.addEventListener('mouseout', () => {
+    isDrawing = false;
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    const touch = getTouchPos(canvas, e);
+    isDrawing = true;
+    drawDot(touch.x, touch.y);
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (isDrawing) {
+      const touch = getTouchPos(canvas, e);
+      drawDot(touch.x, touch.y);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => {
+    isDrawing = false;
+  });
+
+  document.body.addEventListener('touchstart', (e) => {
+    if (e.target == canvas) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.body.addEventListener('touchend', (e) => {
+    if (e.target == canvas) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.body.addEventListener('touchmove', (e) => {
+    if (e.target == canvas) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.getElementById('colorPicker').addEventListener('change', (e) => {
+    brushColor = e.target.value;
+  });
+
+  function downloadImage(dataURL, filename) {
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function getTouchPos(canvasDom, touchEvent) {
+    var rect = canvasDom.getBoundingClientRect();
+    return {
+      x: touchEvent.touches[0].clientX - rect.left,
+      y: touchEvent.touches[0].clientY - rect.top
+    };
+  }
+</script>
+</body>
+</html>
